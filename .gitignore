@@ -1,0 +1,13 @@
+# Ambiente Virtual do Python
+.venv/
+venv/
+
+# Arquivos de cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivo de macro gravado pelo usuário
+# (Não queremos versionar os cliques de um usuário, apenas o programa)
+macro_actions.json
