@@ -76,6 +76,12 @@ def record_macro():
 
     recorded_actions = []
     is_recording = True
+    
+    # --- MUDANÇA AQUI ---
+    print("Prepare-se! A gravação começará em 3 segundos...")
+    time.sleep(3)
+    # --- FIM DA MUDANÇA ---
+
     start_time = time.time()
     pyautogui.FAILSAFE = False
 
@@ -117,17 +123,17 @@ def play_macro():
     pyautogui.FAILSAFE = True
     last_action_time = 0
     
-    # --- MUDANÇA 3: Dicionário para mapear teclas especiais ---
-    # O pynput usa nomes como 'cmd' para a tecla Windows, o pyautogui usa 'win'.
     key_map = {
         'cmd': 'win',
-        'ctrl_l': 'ctrl',
-        'ctrl_r': 'ctrl',
-        'alt_l': 'alt',
-        'alt_r': 'alt',
-        'shift_l': 'shift',
-        'shift_r': 'shift',
+        'ctrl_l': 'ctrl', 'ctrl_r': 'ctrl',
+        'alt_l': 'alt', 'alt_r': 'alt',
+        'shift_l': 'shift', 'shift_r': 'shift',
     }
+
+    # --- MUDANÇA AQUI: Dicionário para códigos de controle do CTRL ---
+    # Mapeia códigos de controle (gerados com Ctrl) de volta para suas letras.
+    # \u0001 é Ctrl+A, \u0002 é Ctrl+B, \u0006 é Ctrl+F, etc.
+    ctrl_char_map = {chr(i): chr(i + 96) for i in range(1, 27)}
 
     for action in actions:
         delay = action['time'] - last_action_time
@@ -139,11 +145,15 @@ def play_macro():
             print(f"Executando: Clique em ({action['x']}, {action['y']})")
             pyautogui.click(x=action['x'], y=action['y'], button=action['button'].split('.')[-1])
         
-        # --- MUDANÇA 4: Lógica de execução do teclado atualizada ---
         elif action_type in ['key_press', 'key_release']:
             key = action['key']
-            # Mapeia a tecla se for especial, senão usa a própria tecla
-            mapped_key = key_map.get(key, key)
+            
+            # --- MUDANÇA AQUI: Traduz o código de controle de volta para uma letra ---
+            # Se a tecla for um dos códigos especiais, converte. Senão, usa o mapeamento normal.
+            if key in ctrl_char_map:
+                mapped_key = ctrl_char_map[key]
+            else:
+                mapped_key = key_map.get(key, key)
 
             if action_type == 'key_press':
                 pyautogui.keyDown(mapped_key)
