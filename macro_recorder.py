@@ -8,43 +8,54 @@ RECORDING_FILE = 'macro_actions.json'
 STOP_KEY = keyboard.Key.esc
 
 # --- Variáveis Globais ---
-# Usaremos esta variável para sinalizar quando parar
 is_recording = True
-# Lista para armazenar as ações gravadas
 recorded_actions = []
 start_time = 0
 
 
 # --- Funções de Gravação (Listeners) ---
 
+def get_key_str(key):
+    """Converte uma tecla do pynput para uma string consistente."""
+    if hasattr(key, 'char') and key.char is not None:
+        return key.char
+    elif hasattr(key, 'name'):
+        return key.name
+    else:
+        return str(key)
+
 def on_press(key):
     """Callback chamado quando uma tecla é pressionada."""
-    global is_recording
-
-    # Se a tecla pressionada for a de parada, apenas sinaliza para parar.
-    if key == STOP_KEY:
-        print("Sinal de parada recebido...finalizando.")
-        is_recording = False
-        return False  # Retornar False para parar o listener do teclado
-
-    # O resto da gravação só acontece se estivermos no modo de gravação
     if is_recording:
-        try:
-            key_char = key.char
-        except AttributeError:
-            key_char = str(key)
-
         action = {
             'action': 'key_press',
-            'key': key_char,
+            'key': get_key_str(key),
             'time': time.time() - start_time
         }
         recorded_actions.append(action)
-        print(f"Ação gravada: Pressionado '{key_char}'")
+        print(f"Ação gravada: Pressionado '{get_key_str(key)}'")
+
+# --- MUDANÇA 1: Adicionada a função on_release ---
+def on_release(key):
+    """Callback chamado quando uma tecla é solta."""
+    global is_recording
+
+    if key == STOP_KEY:
+        print("Sinal de parada recebido... finalizando.")
+        is_recording = False
+        return False  # Para o listener do teclado
+
+    if is_recording:
+        action = {
+            'action': 'key_release',
+            'key': get_key_str(key),
+            'time': time.time() - start_time
+        }
+        recorded_actions.append(action)
+        print(f"Ação gravada: Solto '{get_key_str(key)}'")
 
 def on_click(x, y, button, pressed):
     """Callback chamado quando o mouse é clicado."""
-    # A gravação de cliques só acontece se estivermos no modo de gravação
     if is_recording and pressed:
         action = {
             'action': 'mouse_click',
@@ -63,33 +74,27 @@ def record_macro():
     """Inicia a gravação das ações do usuário."""
     global recorded_actions, is_recording, start_time
 
-    # Reseta as variáveis para uma nova gravação
     recorded_actions = []
     is_recording = True
     start_time = time.time()
     pyautogui.FAILSAFE = False
 
-    # Configura e inicia os listeners em segundo plano
-    keyboard_listener = keyboard.Listener(on_press=on_press)
+    # --- MUDANÇA 2: Listener do teclado agora escuta on_release também ---
+    keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
     mouse_listener = mouse.Listener(on_click=on_click)
     
     keyboard_listener.start()
     mouse_listener.start()
 
     print("--- GRAVAÇÃO INICIADA ---")
-    print(f"Realize as ações que deseja gravar. Pressione a tecla '{str(STOP_KEY)}' para parar.")
+    print(f"Realize as ações que deseja gravar. Pressione a tecla '{get_key_str(STOP_KEY)}' para parar.")
 
-    # ****** ESTA É A MUDANÇA PRINCIPAL ******
-    # Em vez de travar o programa com .join(), ficamos em um loop
-    # esperando a variável is_recording se tornar False.
     while is_recording:
         time.sleep(0.1)
 
-    # Quando o loop termina, paramos os listeners explicitamente.
     mouse_listener.stop()
-    print("Listener do mouse parado.")
+    print("Listeners parados.")
 
-    # Salva as ações gravadas em um arquivo JSON
     with open(RECORDING_FILE, 'w') as f:
         json.dump(recorded_actions, f, indent=4)
     
@@ -107,35 +112,52 @@ def play_macro():
         return
     
     print(f"--- EXECUÇÃO INICIADA ---")
-    print(f"Executando {len(actions)} ações. Para parar forçadamente, mova o mouse para o canto superior esquerdo da tela.")
+    print(f"Executando {len(actions)} ações. Para parar forçadamente, mova o mouse para o canto superior esquerdo.")
     
     pyautogui.FAILSAFE = True
     last_action_time = 0
+    
+    # --- MUDANÇA 3: Dicionário para mapear teclas especiais ---
+    # O pynput usa nomes como 'cmd' para a tecla Windows, o pyautogui usa 'win'.
+    key_map = {
+        'cmd': 'win',
+        'ctrl_l': 'ctrl',
+        'ctrl_r': 'ctrl',
+        'alt_l': 'alt',
+        'alt_r': 'alt',
+        'shift_l': 'shift',
+        'shift_r': 'shift',
+    }
 
     for action in actions:
         delay = action['time'] - last_action_time
         time.sleep(delay)
 
-        if action['action'] == 'mouse_click':
+        action_type = action.get('action')
+
+        if action_type == 'mouse_click':
             print(f"Executando: Clique em ({action['x']}, {action['y']})")
             pyautogui.click(x=action['x'], y=action['y'], button=action['button'].split('.')[-1])
         
-        elif action['action'] == 'key_press':
+        # --- MUDANÇA 4: Lógica de execução do teclado atualizada ---
+        elif action_type in ['key_press', 'key_release']:
             key = action['key']
-            if 'Key.' in key:
-                # Converte 'Key.xxx' para 'xxx' em minúsculas
-                pyautogui.press(key.split('.')[-1].lower())
-                print(f"Executando: Pressionando tecla especial '{key}'")
-            else:
-                pyautogui.write(key)
-                print(f"Executando: Escrevendo '{key}'")
+            # Mapeia a tecla se for especial, senão usa a própria tecla
+            mapped_key = key_map.get(key, key)
+
+            if action_type == 'key_press':
+                pyautogui.keyDown(mapped_key)
+                print(f"Executando: Pressionando '{mapped_key}'")
+            elif action_type == 'key_release':
+                pyautogui.keyUp(mapped_key)
+                print(f"Executando: Soltando '{mapped_key}'")
 
         last_action_time = action['time']
 
     print("--- EXECUÇÃO FINALIZADA ---")
 
 
-# --- Menu Principal ---
+# --- Menu Principal (sem alterações) ---
 if __name__ == "__main__":
     while True:
         print("\nO que você deseja fazer?")
