@@ -35,7 +35,7 @@ def on_press(key):
         recorded_actions.append(action)
         print(f"Ação gravada: Pressionado '{get_key_str(key)}'")
 
-# --- MUDANÇA 1: Adicionada a função on_release ---
+# --- Adicionada a função on_release ---
 def on_release(key):
     """Callback chamado quando uma tecla é solta."""
     global is_recording
@@ -77,15 +77,13 @@ def record_macro():
     recorded_actions = []
     is_recording = True
     
-    # --- MUDANÇA AQUI ---
     print("Prepare-se! A gravação começará em 3 segundos...")
     time.sleep(3)
-    # --- FIM DA MUDANÇA ---
 
     start_time = time.time()
     pyautogui.FAILSAFE = False
 
-    # --- MUDANÇA 2: Listener do teclado agora escuta on_release também ---
+    # --- Listener do teclado agora escuta on_release também ---
     keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
     mouse_listener = mouse.Listener(on_click=on_click)
     
@@ -123,16 +121,26 @@ def play_macro():
     pyautogui.FAILSAFE = True
     last_action_time = 0
     
+    # --- Dicionário expandido para incluir keycodes numéricos ---
     key_map = {
+        # Mapeamento original de modificadores
         'cmd': 'win',
         'ctrl_l': 'ctrl', 'ctrl_r': 'ctrl',
         'alt_l': 'alt', 'alt_r': 'alt',
         'shift_l': 'shift', 'shift_r': 'shift',
+        
+        # Mapeamento 1: Nomes do Teclado Numérico (quando NumLock está ON)
+        'kp_0': '0', 'kp_1': '1', 'kp_2': '2', 'kp_3': '3', 'kp_4': '4',
+        'kp_5': '5', 'kp_6': '6', 'kp_7': '7', 'kp_8': '8', 'kp_9': '9',
+        'kp_decimal': '.', 'kp_add': '+', 'kp_subtract': '-',
+        'kp_multiply': '*', 'kp_divide': '/', 'kp_enter': 'enter',
+
+        # Mapeamento 2: Keycodes do Teclado Numérico (comportamento alternativo)
+        '<96>': '0', '<97>': '1', '<98>': '2', '<99>': '3', '<100>': '4',
+        '<101>': '5', '<102>': '6', '<103>': '7', '<104>': '8', '<105>': '9',
+        '<106>': '*', '<107>': '+', '<109>': '-', '<110>': '.', '<111>': '/',
     }
 
-    # --- MUDANÇA AQUI: Dicionário para códigos de controle do CTRL ---
-    # Mapeia códigos de controle (gerados com Ctrl) de volta para suas letras.
-    # \u0001 é Ctrl+A, \u0002 é Ctrl+B, \u0006 é Ctrl+F, etc.
     ctrl_char_map = {chr(i): chr(i + 96) for i in range(1, 27)}
 
     for action in actions:
@@ -148,8 +156,6 @@ def play_macro():
         elif action_type in ['key_press', 'key_release']:
             key = action['key']
             
-            # --- MUDANÇA AQUI: Traduz o código de controle de volta para uma letra ---
-            # Se a tecla for um dos códigos especiais, converte. Senão, usa o mapeamento normal.
             if key in ctrl_char_map:
                 mapped_key = ctrl_char_map[key]
             else:
@@ -157,17 +163,17 @@ def play_macro():
 
             if action_type == 'key_press':
                 pyautogui.keyDown(mapped_key)
-                print(f"Executando: Pressionando '{mapped_key}'")
+                print(f"Executando: Pressionando '{mapped_key}' (Original: '{key}')")
             elif action_type == 'key_release':
                 pyautogui.keyUp(mapped_key)
-                print(f"Executando: Soltando '{mapped_key}'")
+                print(f"Executando: Soltando '{mapped_key}' (Original: '{key}')")
 
         last_action_time = action['time']
 
     print("--- EXECUÇÃO FINALIZADA ---")
 
 
-# --- Menu Principal (sem alterações) ---
+# --- Menu Principal
 if __name__ == "__main__":
     while True:
         print("\nO que você deseja fazer?")
